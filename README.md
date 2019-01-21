@@ -5,8 +5,9 @@
 * [编程模型](#编程模型)
 * [基本参数](#基本参数)
 * [安全机制](#安全机制)
-* [上传凭证](#上传凭证)
-* [下载凭证](#下载凭证)
+  * [上传策略](#上传策略)
+  * [上传凭证](#上传凭证)
+  * [下载凭证](#下载凭证)
 * [API参考](#api参考)
   * [公共HTTP头定义](#公共http头定义)
   * [上传文件](#上传文件)
@@ -45,16 +46,19 @@
 
    OSS通过使用AccessKeyId/AccessKeySecret对称加密的方法来验证某个请求的发送者身份。AccessKeyId用于标示用户，AccessKeySecret是用户用于加密签名字符串和OSS用来验证签名字符串的密钥，其中AccessKeySecret必须保密
 
-## 上传凭证
-   
-1. 构造上传策略，目前仅支持deadline这一个策略，后续根据实际需求可扩展
-   
-    字段名 | 类型 | 必填 | 说明
-     ---| ---| --- | ---
-    **deadline** | int | 是 | 上传凭证有效截止时间。Unix时间戳，单位为秒。一般建议设置为上传开始时间 + 3600s，用户可根据具体的业务场景对凭证截止时间进行调整。
-    **is_public_access** | int | 否 | 0：私有资源(默认)； 1：公开资源
-    **is_encrypted_storage** | int | 否 | 0：默认； 1：加密存储
+### 上传策略
+   上传策略是资源上传时附带的一组配置设定。
+      
+   字段名 | 类型 | 必填 | 说明
+   ---| ---| --- | --- |
+   **deadline** | int | 是 | 上传凭证有效截止时间。Unix时间戳，单位为秒。一般建议设置为上传开始时间 + 3600s，用户可根据具体的业务场景对凭证截止时间进行调整。
+   **is_public_access** | int | 否 | 0：私有资源(默认)； 1：公开资源
+   **is_encrypted_storage** | int | 否 | 0：默认； 1：加密存储
 
+### 上传凭证
+   上传前需要先从获取上传凭证，并在上传资源时将上传凭证作为请求内容的一部分。不带凭证或带非法凭证的请求将返回 HTTP 错误码 401，代表认证失败。
+1. 构造上传策略
+    用户根据业务需求，确定[上传策略](#上传策略)要素，构造出具体的[上传策略](#上传策略)
 
 2. 将上传策略序列化为json，如下所示
     >  {"deadline":1544599494}
@@ -78,7 +82,7 @@
     >
    **注意：**签名结果是二进制数据，此处输出的是每个字节的十六进制表示，以便核对检查。
 
-5. 对签名进行[URL 安全的 Base64 编码](#1)：
+5. 对签名进行[URL 安全的 Base64 编码](#url安全的base64编码)
     > encodedSign = urlsafe_base64_encode(sign)
     > 
     > 最终签名值为: Y2NmMDZlNDc1NjQ2ZDhiZWE4ZjZkNGQwN2ZlOGZiZDRkODQyZGZkOA==
@@ -92,7 +96,7 @@
     >**UpToken** \<token> 
     >
     **注意中间有空格**
-## 下载凭证
+### 下载凭证
 
 1. 下载URL,key为上传时服务返回:
     > http://oss.test.etcsd.cn/object/{key} 如:         
@@ -101,7 +105,7 @@
 2. 为下载 URL 加上过期时间 e 参数，Unix时间戳：
     > DownloadUrl = 'http://oss.test.etcsd.cn/object/5c10cf2a43b8e4403afc25e4?e=1544778173'
    
-3. 对上一步得到的 URL 字符串计算HMAC-SHA1签名，并对结果做**URL安全的 Base64 编码**：
+3. 对上一步得到的 URL 字符串计算HMAC-SHA1签名，并对结果做[URL安全的 Base64 编码](#url安全的base64编码)：
     > Sign = hmac_sha1(DownloadUrl, AccessKeySecret)
     > 
     > EncodedSign = urlsafe_base64_encode(Sign)
@@ -120,7 +124,6 @@
 Http header |  描述  | 类型 
 --- | --- |--- |
 Authorization | 用于验证请求合法性的认证信息。该头部应严格按照上传凭证格式进行填充，否则会返回 401 错误码。例如Authorization: UpToken pr43dzwwhpfh9w4d7kfg:NjZmYzFmYzA... | 请求头
-md5 | 上传内容的 md5 校验码。如果指定此值，则OSS服务器会使用此值进行内容检验 | 请求头
 X-OSS-Request-Id | 上传请求的唯一 ID。通过该 ID 可快速定位用户请求的相关日志 | 响应头
 
 
