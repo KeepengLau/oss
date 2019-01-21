@@ -68,7 +68,7 @@
     > {"deadline":1544599494, "is_public_access":1}
     
 
-3. 对 JSON 编码的上传策略进行[URL 安全的 Base64 编码](#1)，得到待签名字符串：
+3. 对 JSON 编码的上传策略进行[URL 安全的 Base64 编码](#url安全的base64编码)，得到待签名字符串：
     > policy = {"deadline":1544599494}
     > 
     > encodedPolicy = urlsafe_base64_encode(policy)
@@ -80,7 +80,8 @@
     > 
     > 签名结果为: ccf06e475646d8bea8f6d4d07fe8fbd4d842dfd8
     >
-   **注意：**签名结果是二进制数据，此处输出的是每个字节的十六进制表示，以便核对检查。
+   
+   注意：签名结果是二进制数据，此处输出的是每个字节的十六进制表示，以便核对检查。
 
 5. 对签名进行[URL 安全的 Base64 编码](#url安全的base64编码)
     > encodedSign = urlsafe_base64_encode(sign)
@@ -200,7 +201,7 @@ X-OSS-Request-Id | 上传请求的唯一 ID。通过该 ID 可快速定位用户
 
 字段名称 | 类型 | 说明
 ---|---|---
-filename|string|文件原始名字。如test.jpg
+filename|string|原文件名。对于没有文件名的情况，建议填入随机生成的纯文本字符串.
 binary|string|base64编码之后的数据。 Base64Encode(test.jpg)
 ### 下载资源
 #### 请求
@@ -231,8 +232,8 @@ binary|string|base64编码之后的数据。 Base64Encode(test.jpg)
 各个接口在遇到执行错误时，将返回一个 JSON 格式组织的信息对象，描述出错原因。具体格式如下：
 ```
 {   
-     "code": \<int http code>,    
-     "message": \<string errmsg>"   
+     "code": <int http code>,    
+     "message": <string errmsg>"   
 }
 ```
 
