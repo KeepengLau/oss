@@ -6,9 +6,15 @@
 * [基本参数](#基本参数)
 * [安全机制](#安全机制)
 * [上传凭证](#上传凭证)
-
-
-
+* [下载凭证](#下载凭证)
+* [API参考](#api参考)
+  * [公共HTTP头定义](#公共http头定义)
+  * [上传文件](#上传文件)
+  * [上传Base64格式文件](#上传base64格式文件)
+  * [下载资源](#下载资源)
+  * [错误响应](#错误响应)
+* [数据格式](#数据格式)
+  * [URL安全的Base64编码](#url安全的base64编码)
 
 
 
@@ -33,6 +39,7 @@
 - **AccessKeySecret(测试)：** Kgt***************Krn3
 - **请求地址（测试环境）：** http://oss.test.etcsd.cn/
 - **请求地址（生产环境）：** https://oss.etcsd.com/
+
 每个产品组可以根据项目申请AccessKey(AccessKeyId+AccessKeySecret),每个AccessKey默认有自己独立的存储空间（Bucket），各组可根据实际情况进行申请。后续将根据情况开发存储空间的管理接口。
 ## 安全机制
 
@@ -80,8 +87,158 @@
     > token = AccessKeyId + ":" + encodedSign + ":" + encodedPolicy
     > 
     > 实际值为: pr**********kfg:Y2NmMDZlNDc1NjQ2ZDhiZWE4ZjZkNGQwN2ZlOGZiZDRkODQyZGZkOA==:eyJkZWFkbGluZSI6MTU0NDU5OTQ5NH0=
-7.  将token填充在上传资源请求Header Authorization 域中，格式为：
+7.  将token填充在上传资源请求Header Authorization 域中，格式为(不包含尖括号)：
   
     >**UpToken** \<token> 
     >
     **注意中间有空格**
+## 下载凭证
+
+1. 下载URL,key为上传时服务返回:
+    > http://oss.test.etcsd.cn/object/{key} 如:         
+    > http://oss.test.etcsd.cn/object/5c10cf2a43b8e4403afc25e4
+   
+2. 为下载 URL 加上过期时间 e 参数，Unix时间戳：
+    > DownloadUrl = 'http://oss.test.etcsd.cn/object/5c10cf2a43b8e4403afc25e4?e=1544778173'
+   
+3. 对上一步得到的 URL 字符串计算HMAC-SHA1签名，并对结果做**URL安全的 Base64 编码**：
+    > Sign = hmac_sha1(DownloadUrl, AccessKeySecret)
+    > 
+    > EncodedSign = urlsafe_base64_encode(Sign)
+
+4. 将AccessKeyId与上一步计算得到的结果用英文符号 : 连接起来：
+    > token = pr43dzwwhpfh9w4d7kfg:NTFlMDJkNTMyZGVmZjMyZmRkMjIwNGY1NzEwODUyOTcwNTdhY2IwNQ==
+
+5. 将上述Token 拼接到含过期时间参数 e 的 DownloadUrl 之后，作为最后的下载 URL,通过get方法调用即可：
+    > RealDownloadUrl = http://oss.test.etcsd.cn/object/5c10cf2a43b8e4403afc25e4?e=1544778173&token=pr43dzwwhpfh9w4d7kfg:NTFlMDJkNTMyZGVmZjMyZmRkMjIwNGY1NzEwODUyOTcwNTdhY2IwNQ==
+
+    **RealDownloadUrl** 即为下载对应私有资源的可用 URL ，并在指定时间后失效。失效后，可按需要重新生成下载凭证。
+## API参考
+### 公共HTTP头定义
+
+
+Http header |  描述  | 类型 
+--- | --- |--- |
+Authorization | 用于验证请求合法性的认证信息。该头部应严格按照上传凭证格式进行填充，否则会返回 401 错误码。例如Authorization: UpToken pr43dzwwhpfh9w4d7kfg:NjZmYzFmYzA... | 请求头
+md5 | 上传内容的 md5 校验码。如果指定此值，则OSS服务器会使用此值进行内容检验 | 请求头
+X-OSS-Request-Id | 上传请求的唯一 ID。通过该 ID 可快速定位用户请求的相关日志 | 响应头
+
+
+### 上传文件
+
+目前仅支持表单上传，即在一个单一的 HTTP POST 请求中完成一个文件的上传，比较适合简单的应用场景和尺寸较小的文件。
+
+#### 请求
+    /object/upload
+#### 语法
+请求报文的内容以**multipart/form-data**格式组织，上传凭证放在Http请求头(Header)中：
+> 
+> **POST** /object/upload  HTTP/1.1
+> 
+> **Host**:   \<UpHost>
+> 
+> **Content-Type**:   multipart/form-data; boundary=\<frontier>
+> 
+> **Content-Length**: \<multipartContentLength>
+> 
+> **Authorization**: UpToken \<UploadToken>
+> 
+> --\<frontier>
+> 
+> Content-Disposition:   form-data; name="**file**"; filename="\<fileName>"
+> 
+> Content-Type:  application/octet-stream
+> 
+> Content-Transfer-Encoding: binary
+> 
+> \<fileBinaryData>
+> 
+> --\<frontier>--
+
+
+#### 表单域
+名称 | 类型 | 描述 | 必填
+---| --- | --- | ---
+**file** | 字符串 | 文件或文本内容，必须是表单中的最后一个域。浏览器会自动根据文件类型来设置Content-Type，会覆盖用户的设置。 OSS一次只能上传一个文件。默认值：无 | 是
+
+
+#### 请求Header
+
+名称 | 类型 | 描述
+--- | --- | ---
+**Authorization** | 字符串 | 用于验证请求合法性的认证信息。该头部应严格按照上传凭证格式进行填充，否则会返回 401 错误码。例Authorization: UpToken 3vbzhbbdkvb9rv7zhqcx:NjZmYzFmYzA2OGYxNWQ...。
+
+#### 响应
+响应成功返回Http状态码：**200**
+#### 响应报文
+**json格式：**
+
+名称 | 类型 | 说明
+--- | --- | ---
+**md5** | 字符串 | 目标资源的MD5值
+**key** | 字符串 | 目标资源的唯一标识，由OSS服务器生成
+
+### 上传Base64格式文件
+#### 请求
+    /object/upload/encoded
+#### 语法
+请求报文的内容以**x-www-form-urlencoded**格式组织，上传凭证放在Http请求头(Header)中：
+> 
+> **POST** /object/upload/encoded  HTTP/1.1
+> 
+> **Host**:   \<UpHost>
+> 
+> **Content-Type**:   application/x-www-form-urlencoded;charset=utf-8
+> 
+> 
+> **Authorization**: UpToken \<UploadToken>
+> 
+> **filename=test.jpg&binary=/9j/4AAQSkZJRg...**
+
+字段名称 | 类型 | 说明
+---|---|---
+filename|string|文件原始名字。如test.jpg
+binary|string|base64编码之后的数据。 Base64Encode(test.jpg)
+### 下载资源
+#### 请求
+    /object/<key>
+#### 公共资源下载
+公开资源下载通过 HTTP GET 的方式访问资源 URL 即可。资源 URL 的构成如下：
+
+    http://<server>/object/<key>
+#### 私有资源下载
+私有资源下载是通过HTTP GET的方式访问特定的 URL。私有资源URL与公开资源URL相比只是增加了两个参数e和token，分别表示过期时间和下载凭证。一个完整的私有资源 URL 如下所示：
+
+    http://<server>/object/<key>?e=<deadline>&token=<downloadToken>
+#### 响应
+响应成功返回Http状态码：200
+#### 响应报文
+无
+
+## 错误响应
+
+### 错误响应格式
+当请求出现错误时，响应头部信息包括：
+
+
+- Content-Type: application/json
+
+
+- 一个合适的 3xx，4xx，或者 5xx 的 HTTP 状态码
+各个接口在遇到执行错误时，将返回一个 JSON 格式组织的信息对象，描述出错原因。具体格式如下：
+```
+{   
+     "code": \<int http code>,    
+     "message": \<string errmsg>"   
+}
+```
+
+
+字段名称|类型|说明
+---|---|---
+**code**| int | 返回的错误码，用来定位错误场景。
+**message**| String | 包含详细的错误信息
+
+## URL安全的Base64编码
+
+URL安全的Base64编码适用于以URL方式传递Base64编码结果的场景。该编码方式的基本过程是先将内容以Base64格式编码为字符串，然后检查该结果字符串，将字符串中的加号+换成中划线-，并且将斜杠/换成下划线_。
